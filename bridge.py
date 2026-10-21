@@ -306,7 +306,7 @@ def main():
     if not valid_solana(args.worker):
         print(f"[!] '{args.worker}' bukan format alamat Solana yang valid.")
         print("    Alamat Solana = 44 karakter base58 (tanpa 0, O, I, l).")
-        print("    Contoh: 4mFpqJ7LuyYHz5LmtfiWEhGz3Tq3ciurZffg6g7Pm7Dj")
+        print("    Contoh: GANTI_ALAMAT_SOLANA_LO")
         sys.exit(1)
     if args.username and not re.fullmatch(r"[A-Za-z0-9_-]{3,24}", args.username):
         print("[!] username harus 3-24 karakter: huruf, angka, _ atau -")

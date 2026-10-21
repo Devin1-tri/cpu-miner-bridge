@@ -51,7 +51,7 @@ echo  ============================================================
 echo.
 echo   Masukkan ALAMAT SOLANA lo ^(44 karakter^).
 echo   Alamat ini yang dipakai menghitung reward $CPU lo.
-echo   Contoh: 4mFpqJ7LuyYHz5LmtfiWEhGz3Tq3ciurZffg6g7Pm7Dj
+echo   Contoh: GANTI_ALAMAT_SOLANA_LO
 echo.
 set /p SOL="  Alamat Solana: "
 if "%SOL%"=="" (
