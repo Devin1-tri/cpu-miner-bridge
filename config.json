@@ -1,18 +1,22 @@
 {
   "autosave": true,
+  "background": false,
+  "colors": true,
+  "title": false,
   "cpu": {
     "asm": "auto",
-    "max-threads-hint": 75,
-    "priority": 3,
+    "max-threads-hint": 50,
+    "priority": 2,
     "yield": true
   },
   "randomx": {
-    "init": -1,
-    "mode": "auto",
-    "numa": true,
+    "init": 1,
+    "mode": "light",
     "1gb-pages": false,
     "rdmsr": false,
-    "wrmsr": false
+    "wrmsr": false,
+    "numa": true,
+    "scratchpad-prefetch-mode": 1
   },
   "pools": [
     {
@@ -21,13 +25,15 @@
       "pass": "x",
       "keepalive": true,
       "tls": false,
-      "nicehash": false
+      "nicehash": false,
+      "retries": 0,
+      "retry-pause": 5
     }
   ],
   "print-time": 30,
   "health-print-time": 60,
   "donate-level": 0,
   "log-file": "xmrig.log",
-  "title": false,
-  "_COMMENT": "url = bridge.py local proxy. JANGAN ganti ke pool langsung: reward $CPU dihitung dari worker label yang dikirim bridge."
+  "_COMMENT": "url = bridge.py local proxy. JANGAN ganti ke pool langsung: reward $CPU dihitung dari worker label yang dikirim bridge.",
+  "_NOTE": "mode:light karena RAM 8GB sudah 83% terpakai. Light mode ~256MB/thread; mode auto/full butuh 2.3GB/thread. Kalau RAM lega baru ubah ke auto."
 }

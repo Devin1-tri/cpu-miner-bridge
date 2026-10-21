@@ -106,16 +106,61 @@ echo.
 echo  Menjalankan bridge + xmrig... ^(Ctrl+C untuk stop^)
 echo.
 
-REM bridge jalan di terminal sendiri supaya log kelihatan
-start "CPU-Bridge" /min cmd /c %PY% bridge.py --worker "%SOL%" %NAME_ARG% > "%TEMP%\cpu_bridge.log" 2>&1
-timeout /t 2 /nobreak >nul
+REM  Bridge dibuat sebagai file log, bukan window /min, supaya kalau ada
+REM  masalah bisa langsung dibaca tanpa buka window terpisah.
+start "CPU-Bridge" /b cmd /c %PY% bridge.py --worker "%SOL%" %NAME_ARG% > "%TEMP%\cpu_bridge.log" 2>&1
+timeout /t 3 /nobreak >nul
+
+echo  ---- cek bridge ----
+if not exist "%TEMP%\cpu_bridge.log" (
+  echo   ^^! bridge tidak jalan. Pastikan Python terinstall.
+  pause
+  exit /b 1
+)
+findstr /c:"stratum proxy siap" "%TEMP%\cpu_bridge.log" >nul && (
+  echo   bridge OK - mendengarkan di 127.0.0.1:3333
+) || (
+  echo   ^^! bridge belum siap. Isi log ^(5 baris terakhir^):
+  echo.
+  powershell -NoProfile -Command "Get-Content '%TEMP%\cpu_bridge.log' -Tail 5"
+  pause
+  exit /b 1
+)
+echo  -------------------
+echo.
 
 xmrig.exe --config=config.json
+set XMRIG_EXIT=%errorlevel%
 
 echo.
 echo  Menghentikan bridge...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3333 ^| findstr LISTENING') do taskkill /PID %%a /F >nul 2>&1
 taskkill /FI "WINDOWTITLE eq CPU-Bridge*" /T /F >nul 2>&1
+
+if not "%XMRIG_EXIT%"=="0" (
+  echo.
+  echo  ============================================================
+  echo   xmrig berhenti dengan kode %XMRIG_EXIT%
+  echo  ============================================================
+  echo.
+  echo   Kemungkinan penyebab dan solusi:
+  echo.
+  echo    ^(1^) TIDAK ADA BARIS "accepted" dan RAM di atas 85%%
+  echo        -^^> seda terlalu banyak program. Tutup Chrome/browser,
+  echo           lalu jalankan MINING.bat lagi.
+  echo        -^^> Sudah disetel mode light ^(~256MB/thread^), tapi kalau
+  echo           masih gagal, edit config.json:
+  echo           "max-threads-hint": 25
+  echo.
+  echo    ^(2^) Log xmrig bilang "pool disconnected" / "1013"
+  echo        -^^> pool mereka yang lagi down, bukan setup lo.
+  echo           Coba lagi nanti.
+  echo.
+  echo   Log lengkap xmrig ada di: %CD%\xmrig.log
+  echo.
+  pause
+  exit /b 1
+)
 
 echo.
 echo  Selesai. Cek reward di https://xmr.cpucoinsol.app/rewards.html
