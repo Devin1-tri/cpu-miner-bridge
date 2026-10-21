@@ -31,8 +31,8 @@
       "connect-timeout": 15
     }
   ],
-  "print-time": 30,
-  "health-print-time": 60,
+  "print-time": 5,
+  "health-print-time": 15,
   "donate-level": 0,
   "log-file": "xmrig.log",
   "_COMMENT": "url = bridge.py local proxy. JANGAN ganti ke pool langsung: reward $CPU dihitung dari worker label yang dikirim bridge.",

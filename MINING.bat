@@ -162,6 +162,18 @@ findstr /c:"stratum proxy siap" "%TEMP%\cpu_bridge.log" >nul && (
 echo  -------------------
 echo.
 
+REM  ============================================================
+REM  Catatan penting soal cara xmrig dijalankan:
+REM
+REM  xmrig.exe dijalankan langsung di console ini (foreground), BUKAN lewat
+REM  'start', supaya output-nya kelihatan dan Ctrl+C berhenti di xmrig.
+REM
+REM  JANGAN jalankan xmrig dengan 'start /b' atau bungkus dengan 'timeout':
+REM  xmrig akan langsung exit setelah mencetak "READY threads", karena proses
+REM  induk (cmd.exe) sudah tidak menunggu anaknya. Gejalanya: log berhenti di
+REM  READY threads, lalu "Menghentikan bridge", padahal mining belum dapat
+REM  satu pun share.
+REM  ============================================================
 xmrig.exe --config=config.json
 set XMRIG_EXIT=%errorlevel%
 
