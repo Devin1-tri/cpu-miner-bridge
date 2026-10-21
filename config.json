@@ -6,8 +6,9 @@
   "cpu": {
     "asm": "auto",
     "max-threads-hint": 75,
-    "priority": 2,
-    "yield": true
+    "priority": 4,
+    "yield": false,
+    "hwloc-type": "physical"
   },
   "randomx": {
     "init": 1,
