@@ -1,0 +1,33 @@
+{
+  "autosave": true,
+  "cpu": {
+    "asm": "auto",
+    "max-threads-hint": 75,
+    "priority": 3,
+    "yield": true
+  },
+  "randomx": {
+    "init": -1,
+    "mode": "auto",
+    "numa": true,
+    "1gb-pages": false,
+    "rdmsr": false,
+    "wrmsr": false
+  },
+  "pools": [
+    {
+      "url": "127.0.0.1:3333",
+      "user": "x",
+      "pass": "x",
+      "keepalive": true,
+      "tls": false,
+      "nicehash": false
+    }
+  ],
+  "print-time": 30,
+  "health-print-time": 60,
+  "donate-level": 0,
+  "log-file": "xmrig.log",
+  "title": false,
+  "_COMMENT": "url = bridge.py local proxy. JANGAN ganti ke pool langsung: reward $CPU dihitung dari worker label yang dikirim bridge."
+}
