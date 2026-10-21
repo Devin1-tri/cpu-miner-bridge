@@ -31,16 +31,23 @@ if not exist "xmrig.exe" (
 
 where python >nul 2>&1
 if errorlevel 1 (
-  echo.
-  echo  ============================================================
-  echo   PYTHON TIDAK DITEMUKAN.
-  echo  ============================================================
-  echo.
-  echo   Install dari https://www.python.org/downloads/
-  echo   PENTING: centang "Add python.exe to PATH" di installer.
-  echo.
-  pause
-  exit /b 1
+  where py >nul 2>&1
+  if errorlevel 1 (
+    echo.
+    echo  ============================================================
+    echo   PYTHON TIDAK DITEMUKAN.
+    echo  ============================================================
+    echo.
+    echo   Install dari https://www.python.org/downloads/
+    echo   PENTING: centang "Add python.exe to PATH" di installer,
+    echo   lalu tutup dan buka lagi CMD ini.
+    echo.
+    pause
+    exit /b 1
+  )
+  set "PY=py -3"
+) else (
+  set "PY=python"
 )
 
 :ASK_SOL
@@ -73,16 +80,46 @@ if not "%NAME%"=="" (
   )
 )
 
+:ASK_CPU
+echo.
+echo  ============================================================
+echo   Berapa CPU yang mau dialokasikan?
+echo  ============================================================
+echo.
+echo   [1] 25%%  - 1 thread   ringan, PC tetap enak dipakai
+echo   [2] 50%%  - 2 thread   seimbang  ^(rekomendasi kalau masih pakai PC^)
+echo   [3] 75%%  - 3 thread   agak berat
+echo   [4] 100%% - 4 thread   maksimal untuk 4 core  ^(sweet spot RandomX^)
+echo.
+echo   RandomX paling optimal 1 thread per CORE fisik, jadi 100%% di
+echo   prosesor 4-core biasanya sudah ambang terbaik ditambah thread.
+echo.
+choice /c 1234 /m "  Pilih alokasi CPU"
+if errorlevel 1 set "CPUPCT=25"
+if errorlevel 2 set "CPUPCT=50"
+if errorlevel 3 set "CPUPCT=75"
+if errorlevel 4 set "CPUPCT=100"
+
 echo.
 echo  ============================================================
 echo   Ringkasan
 echo  ============================================================
 echo   Alamat Solana : %SOL%
 if not "%NAME%"=="" (echo   Username      : %NAME%) else (echo   Username      : ^(dilewati^))
-echo   CPU           : 75%% ^(3 thread, aman untuk RAM 8GB^)
+echo   CPU           : %CPUPCT%%
 echo.
 choice /c YN /m "  Mulai mining sekarang"
 if errorlevel 2 exit /b 0
+
+REM ------------------------------------------------------------
+REM  Terapkan pilihan CPU ke config.json xmrig
+REM ------------------------------------------------------------
+%PY% set_cpu.py %CPUPCT%
+if errorlevel 1 (
+  echo   ^^! Gagal mengatur CPU - cek set_cpu.py
+  pause
+  exit /b 1
+)
 
 REM ------------------------------------------------------------
 REM  Susun argumen bridge (username opsional)
@@ -91,10 +128,6 @@ REM  ikut masuk ke value. Pakai pemisah '=' supaya tidak ada nested quote.
 REM ------------------------------------------------------------
 set "NAME_ARG="
 if not "%NAME%"=="" set "NAME_ARG=--username=%NAME%"
-
-REM  pilih interpreter python: 'python' atau 'py -3'
-set "PY=python"
-where python >nul 2>&1 || set "PY=py -3"
 
 REM ------------------------------------------------------------
 REM  Simpan pilihan biar gak usah tiap kali

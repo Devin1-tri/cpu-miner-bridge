@@ -1,11 +1,11 @@
 {
-  "autosave": true,
+  "autosave": false,
   "background": false,
   "colors": true,
   "title": false,
   "cpu": {
     "asm": "auto",
-    "max-threads-hint": 50,
+    "max-threads-hint": 75,
     "priority": 2,
     "yield": true
   },
