@@ -8,7 +8,7 @@ REM  xmrig sendiri tidak bisa langsung ke WS, makadari skrip ini ada.
 REM ============================================================
 setlocal
 
-set WORKER=4mFpqJ7LuyYHz5LmtfiWEhGz3Tq3ciurZffg6g7Pm7Dj
+set WORKER=GANTI_ALAMAT_SOLANA_LO
 
 echo.
 echo  [1/3] bridge...
