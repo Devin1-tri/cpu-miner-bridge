@@ -26,6 +26,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import selectors
 import socket
 import ssl
@@ -33,6 +34,7 @@ import struct
 import sys
 import threading
 import time
+import urllib.parse
 
 BRIDGE_HOST = "monroe-unallayable-annalistically.ngrok-free.dev"
 BRIDGE_PATH = "/?pool=pool.hashvault.pro&port=443"
@@ -67,19 +69,21 @@ def ws_connect(host, path, origin):
     ctx.verify_mode = ssl.CERT_NONE
     s = ctx.wrap_socket(raw, server_hostname=host)
     key = base64.b64encode(os.urandom(16)).decode()
-    req = (f"GET {path} HTTP/1.1\r\nHost: {host}\r\n"
-           "Upgrade: websocket\r\nConnection: Upgrade\r\n"
-           f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n"
-           f"Origin: {origin}\r\nUser-Agent: {AGENT}\r\n\r\n")
-    s.sendall(req.encode())
+    lines = [f"GET {path} HTTP/1.1", f"Host: {host}",
+             "Upgrade: websocket", "Connection: Upgrade",
+             f"Sec-WebSocket-Key: {key}", "Sec-WebSocket-Version: 13",
+             f"Origin: {origin}", f"User-Agent: {AGENT}"]
+    lines += ["", ""]
+    s.sendall("\r\n".join(lines).encode())
     buf = b""
     while b"\r\n\r\n" not in buf:
         c = s.recv(1024)
         if not c:
             break
         buf += c
-    if "101" not in buf.split(b"\r\n")[0].decode("utf-8", "replace"):
-        raise RuntimeError("handshake gagal")
+    status = buf.split(b"\r\n")[0].decode("utf-8", "replace")
+    if "101" not in status:
+        raise RuntimeError("handshake gagal: " + status)
     return s
 
 
@@ -247,7 +251,8 @@ class Session:
     _tcp_dead = False
 
 
-def serve(worker, host, port):
+def serve(worker, host, port, path=None, username=""):
+    path = path or BRIDGE_PATH
     ls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ls.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     ls.bind((host, port))
@@ -258,8 +263,8 @@ def serve(worker, host, port):
 
     tcp, addr = ls.accept()
     log(f"miner konek dari {addr[0]}:{addr[1]}")
-    log("membuka WS ke bridge...")
-    ws = ws_connect(BRIDGE_HOST, BRIDGE_PATH, BRIDGE_ORIGIN)
+    log(f"membuka WS ke bridge ({BRIDGE_HOST}{path})...")
+    ws = ws_connect(BRIDGE_HOST, path, BRIDGE_ORIGIN)
     log("WS terbuka (101) - siap meneruskan")
 
     s = Session(tcp, ws, worker)
@@ -275,13 +280,47 @@ def serve(worker, host, port):
     log(f"sesi selesai: {s.jobs} job, {s.submits} submit diteruskan")
 
 
+def valid_solana(addr):
+    """Solana public keys are 32 bytes, base58, usually rendered as 44 chars."""
+    a = (addr or "").strip()
+    if not (32 <= len(a) <= 44):
+        return False
+    try:
+        a.encode("ascii")
+    except UnicodeEncodeError:
+        return False
+    alphabet = set("123456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+                   "abcdefghijkmnopqrstuvwxyz")   # no 0 O I l
+    return all(c in alphabet for c in a)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--worker", required=True, help="alamat Solana lo (worker label)")
+    ap.add_argument("--username", default="",
+                    help="public username opsional (3-24 huruf/angka/_/-), "
+                         "dikirim sebagai ?username= ke bridge")
     ap.add_argument("--listen", default="127.0.0.1:3333")
     args = ap.parse_args()
+
+    if not valid_solana(args.worker):
+        print(f"[!] '{args.worker}' bukan format alamat Solana yang valid.")
+        print("    Alamat Solana = 44 karakter base58 (tanpa 0, O, I, l).")
+        print("    Contoh: 4mFpqJ7LuyYHz5LmtfiWEhGz3Tq3ciurZffg6g7Pm7Dj")
+        sys.exit(1)
+    if args.username and not re.fullmatch(r"[A-Za-z0-9_-]{3,24}", args.username):
+        print("[!] username harus 3-24 karakter: huruf, angka, _ atau -")
+        sys.exit(1)
+
+    # accept both "--username=foo" and "--username foo"
+    username = (args.username or "").strip()
+    path = BRIDGE_PATH
+    if username:
+        path += "&username=" + urllib.parse.quote(username, safe="")
+        log(f"public username: {username}")
+
     host, port = args.listen.split(":")
-    serve(args.worker, host, int(port))
+    serve(args.worker, host, int(port), path=path, username=username)
 
 
 if __name__ == "__main__":

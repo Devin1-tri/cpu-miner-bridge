@@ -9,7 +9,7 @@ import socket
 import sys
 import time
 
-HOST, PORT = "127.0.0.1", 33332
+HOST, PORT = "127.0.0.1", 33333
 
 
 def recv_lines(sock, timeout=30):
