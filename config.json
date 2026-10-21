@@ -26,8 +26,9 @@
       "keepalive": true,
       "tls": false,
       "nicehash": false,
-      "retries": 0,
-      "retry-pause": 5
+      "retries": -1,
+      "retry-pause": 5,
+      "connect-timeout": 15
     }
   ],
   "print-time": 30,

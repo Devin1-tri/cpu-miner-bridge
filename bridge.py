@@ -152,14 +152,27 @@ def translate_login(msg, worker):
 # ------------------------------------------------------------------- session --
 
 class Session:
-    def __init__(self, tcp, ws, worker):
+    def __init__(self, tcp, ws, worker, path=None):
         self.tcp = tcp
         self.ws = ws
         self.worker = worker
+        self.path = path or BRIDGE_PATH
+        self.login_msg = None
         self.logged_in = False
         self.jobs = 0
         self.submits = 0
         self.lock = threading.Lock()
+
+    def keep(self, msg):
+        """Remember the miner's login so a reconnect can replay it verbatim."""
+        self.login_msg = msg
+
+    def login_payload(self):
+        return translate_login(self.login_msg, self.worker) if self.login_msg else {
+            "id": 1, "jsonrpc": "2.0", "method": "login",
+            "params": {"login": PROJECT_WALLET, "pass": self.worker,
+                       "rigid": self.worker, "agent": AGENT,
+                       "algo": ["rx/0"]}}
 
     # ---- TCP client -> WS ----
     def pump_tcp(self):
@@ -197,6 +210,7 @@ class Session:
         method = msg.get("method")
         if method == "login" and not self.logged_in:
             log(f"miner login -> bridge login (worker {self.worker})")
+            self.keep(msg)
             with self.lock:
                 ws_send(self.ws, translate_login(msg, self.worker))
             return
@@ -208,38 +222,75 @@ class Session:
 
     # ---- WS -> TCP client ----
     def pump_ws(self):
-        while True:
+        """Relay bridge->miner, and keep the WS alive across pool blips.
+
+        The bridge closes with 1013 "Pool disconnected" for as long as the
+        upstream pool is down. Exiting there is the wrong behaviour: the miner
+        (and the operator) want to keep waiting. So instead of returning we
+        reconnect with a capped backoff and re-login, which is exactly what a
+        browser client's own reconnect does.
+        """
+        attempt = 0
+        while not self._tcp_dead:
             frame = ws_recv(self.ws)
+            reason = None
             if frame is None:
-                log("bridge WS tutup")
-                return
-            opcode, data = frame
-            if opcode == 8:
-                log(f"bridge tutup koneksi (code 0x{data[:2].hex() if len(data) >= 2 else '??'})")
-                return
-            if opcode != 1:
-                continue
-            try:
-                msg = json.loads(data.decode("utf-8", "replace"))
-            except Exception:
-                continue
-            # 1. answer login, and strip anything the miner must not see
-            if not self.logged_in and msg.get("id") == 1:
-                result = msg.get("result")
-                if isinstance(result, dict):
-                    # xmrig accepts a login response; give it the job too
-                    result.setdefault("id", result.get("id") or "1")
-                    self.logged_in = True
-                    pool_job = result.get("job")
-                    if pool_job:
+                reason = "koneksi WS terputus"
+            else:
+                opcode, data = frame
+                if opcode == 8:
+                    code = None
+                    try:
+                        if len(data) >= 2:
+                            code = struct.unpack(">H", data[:2])[0]
+                    except Exception:
+                        pass
+                    reason = f"bridge tutup (code {code})"
+                elif opcode == 1:
+                    try:
+                        msg = json.loads(data.decode("utf-8", "replace"))
+                    except Exception:
+                        continue
+                    # 1. answer login, and strip anything the miner must not see
+                    if not self.logged_in and msg.get("id") == 1:
+                        result = msg.get("result")
+                        if isinstance(result, dict):
+                            self.logged_in = True
+                            pool_job = result.get("job")
+                            if pool_job:
+                                self.jobs += 1
+                                self._tcp_send(msg)
+                                log(f"job diterima (height {pool_job.get('height')})")
+                                attempt = 0
+                                continue
+                    # 2. jobs as notifications
+                    if msg.get("method") == "job":
                         self.jobs += 1
-                        log(f"job pertama diterima (height {pool_job.get('height')})")
                     self._tcp_send(msg)
                     continue
-            # 2. jobs as notifications
-            if msg.get("method") == "job":
-                self.jobs += 1
-            self._tcp_send(msg)
+
+            if self._tcp_dead:
+                return
+            # reconnect loop (the miner keeps its job, xmrig waits on the pool)
+            delay = min(60.0, 5.0 * (2 ** min(attempt, 4)))
+            attempt += 1
+            log(f"{reason}; pool sedang tidak tersedia - retry #{attempt} "
+                f"dalam {delay:.0f}s (xmrig tetap nunggu)")
+            time.sleep(delay)
+            try:
+                self.ws.close()
+            except Exception:
+                pass
+            try:
+                with self.lock:
+                    self.ws = ws_connect(BRIDGE_HOST, self.path, BRIDGE_ORIGIN)
+                log("WS terbuka lagi - login ulang")
+                self.logged_in = False
+                with self.lock:
+                    ws_send(self.ws, self.login_payload())
+            except Exception as ex:
+                log(f"reconnect gagal: {ex}")
+                continue
 
     def _tcp_send(self, msg):
         try:
@@ -267,7 +318,7 @@ def serve(worker, host, port, path=None, username=""):
     ws = ws_connect(BRIDGE_HOST, path, BRIDGE_ORIGIN)
     log("WS terbuka (101) - siap meneruskan")
 
-    s = Session(tcp, ws, worker)
+    s = Session(tcp, ws, worker, path=path)
     t_tcp = threading.Thread(target=s.pump_tcp, daemon=True)
     t_ws = threading.Thread(target=s.pump_ws, daemon=True)
     t_tcp.start()
